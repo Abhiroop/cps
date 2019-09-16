@@ -42,3 +42,66 @@ data CExp =
   | Switch Value [CExp]
   | PrimOp PrimOp [Value] [Variable] [CExp]
   deriving (Show, Eq, Ord)
+
+
+{-
+c = a + b
+PrimOp Plus [Var "a", Var "b"] [Var "c"] [Var "e"]
+
+
+c = (a + 1) * (3 + c)
+PrimOp Plus [Var "a", Int 1] ["u"]
+ [PrimOp Plus [Int 3, Var "c"] ["v"]
+   [PrimOp Mul [Var "u", Var "v"] ["e"] ["M"]]]
+
+
+if a > b then F else G
+PrimOp GT [Var "a", Var "b"] [] ["F", "G"]
+
+w = (a, 2, c)  -- continuation is E
+RECORD [(Var "a", OFFP 0), (Int 2, OFFP 0), (Var "c", OFFP 0)] w E
+
+-}
+
+foo a b c d =
+  let f x = 2 * x + 1
+  in f (a + b) * f (c + d)
+
+foo1 a b c d r =
+  let f x k = k (2 * x + 1)
+      k1 i = let k2 j = r (i * j)
+              in f (c + d) k2
+   in f (a + b) k1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
