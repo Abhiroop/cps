@@ -37,7 +37,12 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps:
+  #- stc-lang-1.0.0@sha256:7594add72637b9773d458f1c573337268f79513315abeae21e860809a6c853ba
+  - hw-kafka-client-2.6.0@sha256:f8d20f3b88dee2c798b6b7f1b177a5e54a9aa5f4c1c7c8127847b5a555451cd8
+  - git: https://github.com/Abhiroop/stc-lang
+    commit: fcc56bbf26e551e9d076017cd4a38df8e85ef97a
+
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

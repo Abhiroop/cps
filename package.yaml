@@ -35,6 +35,9 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - cps
+    - stc-lang
+    - mtl
+    - monad-par
 
 tests:
   cps-test:
