@@ -1,9 +1,9 @@
 > {-# LANGUAGE InstanceSigs #-}
-> {-# LANGUAGE RankNTypes #-}
 > module STC where
 
 > import Control.Monad.Par as Par
 > import Control.Monad.ST
+> import Control.Monad.Reader
 > import Control.Monad.State
 > import Data.Dynamic
 > import Data.Maybe
@@ -105,7 +105,10 @@ instance Monad (State s) where
 
 > instance Applicative SD where
 >   pure  = return
->   (<*>) = ap
+>   f <*> g = SD $ \sn -> do
+>                    gResultVar <- Par.spawn_ $ runSD g sn
+>                    fp         <- runSD f sn
+>                    fp <$> Par.get gResultVar
 
 > instance Monad SD where
 >   f >>= g = SD $ \sn -> do
@@ -157,3 +160,14 @@ instance Monad (State s) where
 >            getNextStates [] = return lastStates
 >            getNextStates _ =
 >              replicateM (length currentStates) Par.new
+
+
+
+
+> liftWithIndex' idx f a = SD (comp $ f a)
+>   where comp st (GlobalState initials results) = do
+>           let ivarState  = initials !! idx
+>               ivarState' = results  !! idx
+>           localState <- Par.get ivarState
+>           _          <- Par.put_ ivarState' localState
+>           runReader st $ fromS localState
