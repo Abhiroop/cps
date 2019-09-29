@@ -1,3 +1,4 @@
+> {-# LANGUAGE InstanceSigs #-}
 > {-# LANGUAGE RankNTypes #-}
 > module STC where
 
@@ -5,7 +6,7 @@
 > import Control.Monad.ST
 > import Control.Monad.State
 > import Data.Dynamic
-
+> import Data.Maybe
 
 State Thread Composition Language
 
@@ -66,14 +67,14 @@ Is ST the `s` is simply a type variable. It simply does not expose the mutable s
 
 > newtype S = S Dynamic deriving Show
 >
-> toS :: Typeable a => a -> S
+> toS :: (Typeable a) => a -> S
 > toS = S . toDyn
 >
-> fromS :: Typeable a => S -> a
-> fromS (S x) = undefined -- fromDyn x
+> fromS :: (Typeable a) => S -> a
+> fromS (S x) = fromJust $ fromDynamic x -- partial function
 
 > class Monad m => STCLang m where
->   liftWithIndex :: forall a s b . (Typeable s, NFData s) =>
+>   liftWithIndex :: (Typeable s, NFData s) =>
 >                    Int -> (a -> StateThread s b) -> a -> m b
 >   runSTCLang    :: m b -> [S] -> b
 >   smap  :: (a -> m b) -> [a] -> m [b]
@@ -111,13 +112,48 @@ instance Monad (State s) where
 >                    x <- runSD f sn
 >                    runSD (g x) sn
 
--- > instance STCLang SD where
--- >   liftWithIndex idx f a = SD (comp $ f a)
--- >     where
--- >      comp st (GlobalState initials results) = do
--- >        let ivarState  = initials !! idx
--- >            ivarState' = results  !! idx
--- >        localState <- fmap fromS (Par.get ivarState)
--- >        let (r, localState') = runStateThread st localState
--- >        _ <- Par.put ivarState' $ toS localState'
--- >        return r
+> instance STCLang SD where
+>   liftWithIndex idx f a = SD (comp $ f a)
+>     where
+>      comp st (GlobalState initials results) = do
+>        let ivarState  = initials !! idx
+>            ivarState' = results  !! idx
+>        localState <- fromS <$> (Par.get ivarState)
+>        let (r, localState') = runStateThread st localState
+>        _ <- Par.put_ ivarState' $ toS localState'
+>        return r
+
+
+>   smap :: (a -> SD b) -> [a] -> SD [b]
+>   smap h xs = SD $ \(GlobalState initials results) -> do
+>      ysIVars <- compute xs initials results
+>      forM ysIVars Par.get
+>      where
+>        compute [] _ _ = return []
+>        compute (xi : xs) currentStates lastStates = do
+>          nextStates <- getNextStates xs
+>          yIVari <- Par.spawn_ $ runSD (h xi)
+>                                   (GlobalState currentStates nextStates)
+>          ysIVars <- compute xs nextStates lastStates
+>          return (yIVari : ysIVars)
+>          where
+>            getNextStates [] = return lastStates
+>            getNextStates _ =
+>              replicateM (length currentStates) Par.new
+
+>   smap_ :: (a -> SD b) -> [a] -> SD ()
+>   smap_ h xs = SD $ \(GlobalState initials results) -> do
+>      ysIVars <- compute xs initials results
+>      forM_ ysIVars Par.get
+>      where
+>        compute [] _ _ = return []
+>        compute (xi : xs) currentStates lastStates = do
+>          nextStates <- getNextStates xs
+>          yIVari <- Par.spawn_ $ runSD (h xi)
+>                                   (GlobalState currentStates nextStates)
+>          ysIVars <- compute xs nextStates lastStates
+>          return (yIVari : ysIVars)
+>          where
+>            getNextStates [] = return lastStates
+>            getNextStates _ =
+>              replicateM (length currentStates) Par.new
